@@ -1,5 +1,4 @@
-import { TeamType } from "../../Types";
-import { Piece, Position } from "../../models";
+import { Position } from "../../models";
 import { tileIsEmptyOrOccupiedByOpponent, tileIsOccupied, tileIsOccupiedByOpponent } from "./GeneralRules";
 
 export const rookMove = (initialPosition, desiredPosition, team, boardState) => {

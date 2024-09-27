@@ -96,7 +96,6 @@ export default function Boardchess({ playMove, pieces }) {
       onMouseDown={(e) => grabPiece(e)}
       onMouseUp={(e) => dropPiece(e)}
       id="chessboard"
-      className="grid grid-cols-8 h-[800px] w-[800px] bg-blue-600"
       ref={chessboardRef}
     >
       {board}

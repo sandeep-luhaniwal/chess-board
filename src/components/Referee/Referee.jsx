@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { initialBoard } from "../../Constants";
 import { Piece } from "../../models";
-import { Board } from "../../models/Board";
 import {
     bishopMove,
     kingMove,
@@ -64,7 +63,7 @@ export default function Referee() {
             );
 
             if (clonedBoard.winningTeam !== undefined) {
-                checkmateModalRef.current?.classList.remove("hidden");
+                checkmateModalRef.current?.classList.remove("none");
             }
 
             return clonedBoard;
@@ -74,7 +73,7 @@ export default function Referee() {
         let promotionRow = playedPiece.team === TeamType.OUR ? 7 : 0;
 
         if (destination.y === promotionRow && playedPiece.isPawn) {
-            modalRef.current?.classList.remove("hidden");
+            modalRef.current?.classList.remove("none");
             setPromotionPawn(() => {
                 const clonedPlayedPiece = playedPiece.clone();
                 clonedPlayedPiece.position = destination.clone();
@@ -195,7 +194,7 @@ export default function Referee() {
             return clonedBoard;
         });
 
-        modalRef.current?.classList.add("hidden");
+        modalRef.current?.classList.add("none");
     }
 
     function promotionTeamType() {
@@ -203,48 +202,52 @@ export default function Referee() {
     }
 
     function restartGame() {
-        checkmateModalRef.current?.classList.add("hidden");
+        checkmateModalRef.current?.classList.add("none");
         setBoard(initialBoard.clone());
     }
 
     return (
         <>
-            <p className="text-white text-2xl text-center py-5"
-              
+            <p
+                style={{
+                    color: "white",
+                    fontSize: "24px",
+                    textAlign: "center",
+                }}
             >
                 Total turns: {board.totalTurns}
             </p>
-            <div className="modal absolute top-0 right-0 left-0 bottom-0 hidden" ref={modalRef}>
-                <div className="modal-body absolute top-[calc(50%-150px) left-[calc(50%-400px)] flex items-center justify-around h-[300px] w-[800px] bg-green-800">
-                    <img className="h-[120px] hover:cursor-pointer bg-green-900 p-5 rounded-[50%]"
+            <div className="modal none" ref={modalRef}>
+                <div className="modal-body">
+                    <img
                         onClick={() => promotePawn(PieceType.ROOK)}
                         src={`/assets/images/rook_${promotionTeamType()}.png`}
                     />
-                    <img className="h-[120px] hover:cursor-pointer bg-green-900 p-5 rounded-[50%]"
+                    <img
                         onClick={() => promotePawn(PieceType.BISHOP)}
                         src={`/assets/images/bishop_${promotionTeamType()}.png`}
                     />
-                    <img className="h-[120px] hover:cursor-pointer bg-green-900 p-5 rounded-[50%]"
+                    <img
                         onClick={() => promotePawn(PieceType.KNIGHT)}
                         src={`/assets/images/knight_${promotionTeamType()}.png`}
                     />
-                    <img className="h-[120px] hover:cursor-pointer bg-green-900 p-5 rounded-[50%]"
+                    <img
                         onClick={() => promotePawn(PieceType.QUEEN)}
                         src={`/assets/images/queen_${promotionTeamType()}.png`}
                     />
                 </div>
             </div>
-            <div className="modal absolute top-0 right-0 left-0 bottom-0 hidden" ref={checkmateModalRef}>
-                <div className="modal-body absolute top-[calc(50%-150px) left-[calc(50%-400px)] flex items-center justify-around h-[300px] w-[800px] bg-green-800">
-                    <div className="checkmate-body flex flex-col gap-12">
-                        <span className="text-[32px]">
+            <div className="modal none" ref={checkmateModalRef}>
+                <div className="modal-body">
+                    <div className="checkmate-body">
+                        <span>
                             The winning team is{" "}
                             {board.winningTeam === TeamType.OUR
                                 ? "white"
                                 : "black"}
                             !
                         </span>
-                        <button className="bg-[#779556] border-none rounded-md py-6 px-12 hover:cursor-pointer text-[32px] text-white" onClick={restartGame}>Play again</button>
+                        <button onClick={restartGame}>Play again</button>
                     </div>
                 </div>
             </div>

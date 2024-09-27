@@ -1,7 +1,6 @@
 import { TeamType } from "../../Types";
-import { Piece, Position } from "../../models";
+import { Position } from "../../models";
 import { tileIsOccupied, tileIsOccupiedByOpponent } from "./GeneralRules";
-import { Pawn } from "../../models/Pawn";
 
 export const pawnMove = (initialPosition, desiredPosition, team, boardState) => {
   const specialRow = team === TeamType.OUR ? 1 : 6;
