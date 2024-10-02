@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { initialBoard } from "../../Constants";
 import { Piece } from "../../models";
 import {
@@ -17,30 +17,66 @@ export default function Referee() {
     const [promotionPawn, setPromotionPawn] = useState();
     const modalRef = useRef(null);
     const checkmateModalRef = useRef(null);
+    const [whiteMove, setWhiteMove] = useState(""); // Latest White move
+    const [blackMove, setBlackMove] = useState(""); // Latest Black move
+    const [timer, setTimer] = useState(10); // Timer in seconds
+    const [activePlayer, setActivePlayer] = useState(TeamType.OUR); // Track the active player
+
+    useEffect(() => {
+        const countdown = setInterval(() => {
+            if (timer > 0) {
+                setTimer((prev) => prev - 1);
+            } else {
+                handleTimeOut();
+            }
+        }, 1000);
+        return () => clearInterval(countdown);
+    }, [timer]);
+
+    function handleTimeOut() {
+        console.log(`Time's up for ${activePlayer === TeamType.OUR ? "White" : "Black"}!`);
+        const randomMove = getRandomMove();
+        if (randomMove) {
+            playMove(randomMove.piece, randomMove.destination);
+        }
+        switchActivePlayer(); // Switch player after auto-move
+    }
+
+    function getRandomMove() {
+        const validMoves = board.pieces
+            .filter(piece => piece.team === activePlayer && piece.possibleMoves && piece.possibleMoves.length > 0)
+            .flatMap(piece => piece.possibleMoves.map(move => ({ piece, destination: move })));
+
+        if (validMoves.length === 0) return null;
+
+        const sortedMoves = validMoves.sort((a, b) => {
+            const piecePriority = {
+                [PieceType.PAWN]: 1,
+                [PieceType.KNIGHT]: 2,
+                [PieceType.BISHOP]: 3,
+                [PieceType.ROOK]: 4,
+                [PieceType.QUEEN]: 5,
+                [PieceType.KING]: 6
+            };
+            return piecePriority[a.piece.type] - piecePriority[b.piece.type];
+        });
+
+        return sortedMoves[0];
+    }
 
     function playMove(playedPiece, destination) {
-        // If the playing piece doesn't have any moves return
         if (playedPiece.possibleMoves === undefined) return false;
 
-        // Prevent the inactive team from playing
-        if (
-            playedPiece.team === TeamType.OUR &&
-            board.totalTurns % 2 !== 1
-        )
-            return false;
-        if (
-            playedPiece.team === TeamType.OPPONENT &&
-            board.totalTurns % 2 !== 0
-        )
-            return false;
+        if (playedPiece.team === TeamType.OUR && board.totalTurns % 2 !== 1) return false;
+        if (playedPiece.team === TeamType.OPPONENT && board.totalTurns % 2 !== 0) return false;
 
         let playedMoveIsValid = false;
+        const validMove = playedPiece.possibleMoves?.some((m) => m.samePosition(destination));
 
-        const validMove = playedPiece.possibleMoves?.some((m) =>
-            m.samePosition(destination)
-        );
-
-        if (!validMove) return false;
+        if (!validMove) {
+            alert("Illegal move!");
+            return false;
+        }
 
         const enPassantMove = isEnPassantMove(
             playedPiece.position,
@@ -49,30 +85,31 @@ export default function Referee() {
             playedPiece.team
         );
 
-        // playMove modifies the board thus we
-        // need to call setBoard
         setBoard(() => {
             const clonedBoard = board.clone();
             clonedBoard.totalTurns += 1;
-            // Playing the move
-            playedMoveIsValid = clonedBoard.playMove(
-                enPassantMove,
-                validMove,
-                playedPiece,
-                destination
-            );
+            playedMoveIsValid = clonedBoard.playMove(enPassantMove, validMove, playedPiece, destination);
+
+            if (playedMoveIsValid) {
+                const playerLabel = playedPiece.team === TeamType.OUR ? "White" : "Black";
+                const moveNotation = `${playerLabel}: ${playedPiece.type} from (${playedPiece.position.x}, ${playedPiece.position.y}) to (${destination.x}, ${destination.y})`;
+
+                if (playedPiece.team === TeamType.OUR) {
+                    setWhiteMove(moveNotation); // Update White's latest move
+                } else {
+                    setBlackMove(moveNotation); // Update Black's latest move
+                }
+            }
 
             if (clonedBoard.winningTeam !== undefined) {
                 checkmateModalRef.current?.classList.remove("none");
+                alert(`Checkmate! The winning team is ${clonedBoard.winningTeam === TeamType.OUR ? "White" : "Black"}!`);
             }
 
             return clonedBoard;
         });
 
-        // This is for promoting a pawn
-        let promotionRow = playedPiece.team === TeamType.OUR ? 7 : 0;
-
-        if (destination.y === promotionRow && playedPiece.isPawn) {
+        if (destination.y === (playedPiece.team === TeamType.OUR ? 7 : 0) && playedPiece.isPawn) {
             modalRef.current?.classList.remove("none");
             setPromotionPawn(() => {
                 const clonedPlayedPiece = playedPiece.clone();
@@ -81,7 +118,17 @@ export default function Referee() {
             });
         }
 
+        switchActivePlayer();
         return playedMoveIsValid;
+    }
+
+    function switchActivePlayer() {
+        setActivePlayer((prev) => (prev === TeamType.OUR ? TeamType.OPPONENT : TeamType.OUR));
+        resetTimer();
+    }
+
+    function resetTimer() {
+        setTimer(10);
     }
 
     function isEnPassantMove(initialPosition, desiredPosition, typeType, team) {
@@ -109,63 +156,6 @@ export default function Referee() {
         return false;
     }
 
-    //TODO
-    //Add stalemate!
-    function isValidMove(initialPosition, desiredPosition, typeType, team) {
-        let validMove = false;
-        switch (typeType) {
-            case PieceType.PAWN:
-                validMove = pawnMove(
-                    initialPosition,
-                    desiredPosition,
-                    team,
-                    board.pieces
-                );
-                break;
-            case PieceType.KNIGHT:
-                validMove = knightMove(
-                    initialPosition,
-                    desiredPosition,
-                    team,
-                    board.pieces
-                );
-                break;
-            case PieceType.BISHOP:
-                validMove = bishopMove(
-                    initialPosition,
-                    desiredPosition,
-                    team,
-                    board.pieces
-                );
-                break;
-            case PieceType.ROOK:
-                validMove = rookMove(
-                    initialPosition,
-                    desiredPosition,
-                    team,
-                    board.pieces
-                );
-                break;
-            case PieceType.QUEEN:
-                validMove = queenMove(
-                    initialPosition,
-                    desiredPosition,
-                    team,
-                    board.pieces
-                );
-                break;
-            case PieceType.KING:
-                validMove = kingMove(
-                    initialPosition,
-                    desiredPosition,
-                    team,
-                    board.pieces
-                );
-        }
-
-        return validMove;
-    }
-
     function promotePawn(pieceTypeType) {
         if (promotionPawn === undefined) {
             return;
@@ -188,9 +178,7 @@ export default function Referee() {
                 }
                 return results;
             }, []);
-
             clonedBoard.calculateAllMoves();
-
             return clonedBoard;
         });
 
@@ -198,24 +186,32 @@ export default function Referee() {
     }
 
     function promotionTeamType() {
-        return promotionPawn?.team === TeamType.OUR ? "w" : "b";
+        return promotionPawn?.team === TeamType.OUR ? "white" : "black";
     }
 
     function restartGame() {
         checkmateModalRef.current?.classList.add("none");
         setBoard(initialBoard.clone());
+        setWhiteMove(""); // Reset White move history
+        setBlackMove(""); // Reset Black move history
+        resetTimer();
+        setActivePlayer(TeamType.OUR);
     }
 
     return (
         <>
-            <p
-                style={{
-                    color: "white",
-                    fontSize: "24px",
-                    textAlign: "center",
-                }}
-            >
+            <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
                 Total turns: {board.totalTurns}
+            </p>
+            <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
+                Timer: {timer}
+            </p>
+            <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
+                Move History:
+            </p>
+
+            <p className="text-white">
+                Active Player: {activePlayer === TeamType.OUR ? "White" : "Black"}
             </p>
             <div className="modal none" ref={modalRef}>
                 <div className="modal-body">
@@ -239,19 +235,17 @@ export default function Referee() {
             </div>
             <div className="modal none" ref={checkmateModalRef}>
                 <div className="modal-body">
-                    <div className="checkmate-body">
-                        <span>
-                            The winning team is{" "}
-                            {board.winningTeam === TeamType.OUR
-                                ? "white"
-                                : "black"}
-                            !
-                        </span>
-                        <button onClick={restartGame}>Play again</button>
-                    </div>
+                    <h1>CHECKMATE!</h1>
+                    <button onClick={restartGame}>Play Again</button>
                 </div>
             </div>
             <Boardchess playMove={playMove} pieces={board.pieces} />
+            <div>
+                <ul style={{ color: "white", fontSize: "20px" }}>
+                    <li>{whiteMove}</li> {/* Display latest White move */}
+                    <li>{blackMove}</li> {/* Display latest Black move */}
+                </ul>
+            </div>
         </>
     );
 }
