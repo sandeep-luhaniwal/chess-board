@@ -17,10 +17,12 @@ export default function Referee() {
     const [promotionPawn, setPromotionPawn] = useState();
     const modalRef = useRef(null);
     const checkmateModalRef = useRef(null);
-    const [whiteMove, setWhiteMove] = useState(""); // Latest White move
-    const [blackMove, setBlackMove] = useState(""); // Latest Black move
+    const [whiteMoves, setWhiteMoves] = useState([]); // List of White moves
+    const [blackMoves, setBlackMoves] = useState([]); // List of Black moves
+    const [currentMoveIndex, setCurrentMoveIndex] = useState(0); // Track the current move index
     const [timer, setTimer] = useState(10); // Timer in seconds
     const [activePlayer, setActivePlayer] = useState(TeamType.OUR); // Track the active player
+    const [lastMove, setLastMove] = useState('');
 
     useEffect(() => {
         const countdown = setInterval(() => {
@@ -65,8 +67,20 @@ export default function Referee() {
     }
 
     function playMove(playedPiece, destination) {
+        // Check if the active player is trying to move their own piece
+        if (playedPiece.team !== activePlayer) {
+            if (activePlayer === TeamType.OUR) {
+                alert("Illegal move! It's White's turn.");
+            } else {
+                alert("Illegal move! It's Black's turn.");
+            }
+            return false;
+        }
+
+        // Continue the move if it's a valid move
         if (playedPiece.possibleMoves === undefined) return false;
 
+        // Ensure that White's moves happen on odd turns and Black's moves on even turns
         if (playedPiece.team === TeamType.OUR && board.totalTurns % 2 !== 1) return false;
         if (playedPiece.team === TeamType.OPPONENT && board.totalTurns % 2 !== 0) return false;
 
@@ -87,20 +101,18 @@ export default function Referee() {
 
         setBoard(() => {
             const clonedBoard = board.clone();
-            clonedBoard.totalTurns += 1;
+            clonedBoard.totalTurns += 1; // Increment the total number of turns
             playedMoveIsValid = clonedBoard.playMove(enPassantMove, validMove, playedPiece, destination);
 
             if (playedMoveIsValid) {
                 const playerLabel = playedPiece.team === TeamType.OUR ? "White" : "Black";
-                const moveNotation = `${playerLabel}: ${playedPiece.type} from (${playedPiece.position.x}, ${playedPiece.position.y}) to (${destination.x}, ${destination.y})`;
+                const turnNumber = clonedBoard.totalTurns; // Correct turn number
+                const moveNotation = `Turn ${turnNumber-1}: ${playerLabel} - ${playedPiece.type} from (${playedPiece.position.x}, ${playedPiece.position.y}) to (${destination.x}, ${destination.y})`;
 
-                if (playedPiece.team === TeamType.OUR) {
-                    setWhiteMove(moveNotation); // Update White's latest move
-                } else {
-                    setBlackMove(moveNotation); // Update Black's latest move
-                }
+                setLastMove(moveNotation); // Update the last move
             }
 
+            // Check if there's a checkmate
             if (clonedBoard.winningTeam !== undefined) {
                 checkmateModalRef.current?.classList.remove("none");
                 alert(`Checkmate! The winning team is ${clonedBoard.winningTeam === TeamType.OUR ? "White" : "Black"}!`);
@@ -109,6 +121,7 @@ export default function Referee() {
             return clonedBoard;
         });
 
+        // Handle pawn promotion
         if (destination.y === (playedPiece.team === TeamType.OUR ? 7 : 0) && playedPiece.isPawn) {
             modalRef.current?.classList.remove("none");
             setPromotionPawn(() => {
@@ -118,13 +131,15 @@ export default function Referee() {
             });
         }
 
-        switchActivePlayer();
+        switchActivePlayer(); // Switch player after the move
         return playedMoveIsValid;
     }
+
 
     function switchActivePlayer() {
         setActivePlayer((prev) => (prev === TeamType.OUR ? TeamType.OPPONENT : TeamType.OUR));
         resetTimer();
+        setCurrentMoveIndex((prev) => prev + 1); // Move to the next move in history
     }
 
     function resetTimer() {
@@ -192,10 +207,11 @@ export default function Referee() {
     function restartGame() {
         checkmateModalRef.current?.classList.add("none");
         setBoard(initialBoard.clone());
-        setWhiteMove(""); // Reset White move history
-        setBlackMove(""); // Reset Black move history
+        setWhiteMoves([]); // Reset White move history
+        setBlackMoves([]); // Reset Black move history
         resetTimer();
         setActivePlayer(TeamType.OUR);
+        setCurrentMoveIndex(0); // Reset current move index
     }
 
     return (
@@ -205,9 +221,6 @@ export default function Referee() {
             </p>
             <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
                 Timer: {timer}
-            </p>
-            <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
-                Move History:
             </p>
 
             <p className="text-white">
@@ -240,11 +253,13 @@ export default function Referee() {
                 </div>
             </div>
             <Boardchess playMove={playMove} pieces={board.pieces} />
-            <div>
-                <ul style={{ color: "white", fontSize: "20px" }}>
-                    <li>{whiteMove}</li> {/* Display latest White move */}
-                    <li>{blackMove}</li> {/* Display latest Black move */}
-                </ul>
+            <div className="fixed end-0 w-[400px] top-0">
+                <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
+                    Move History:
+                </p>
+                <p style={{ color: "white", fontSize: "20px" }}>
+                    {lastMove}
+                </p>
             </div>
         </>
     );
