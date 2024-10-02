@@ -20,9 +20,9 @@ export default function Referee() {
     const [whiteMoves, setWhiteMoves] = useState([]); // List of White moves
     const [blackMoves, setBlackMoves] = useState([]); // List of Black moves
     const [currentMoveIndex, setCurrentMoveIndex] = useState(0); // Track the current move index
-    const [timer, setTimer] = useState(10); // Timer in seconds
+    const [timer, setTimer] = useState(90); // Timer in seconds
     const [activePlayer, setActivePlayer] = useState(TeamType.OUR); // Track the active player
-    const [lastMove, setLastMove] = useState('');
+    const [moveHistory, setMoveHistory] = useState([]); // Array to hold move history
 
     useEffect(() => {
         const countdown = setInterval(() => {
@@ -69,11 +69,7 @@ export default function Referee() {
     function playMove(playedPiece, destination) {
         // Check if the active player is trying to move their own piece
         if (playedPiece.team !== activePlayer) {
-            if (activePlayer === TeamType.OUR) {
-                alert("Illegal move! It's White's turn.");
-            } else {
-                alert("Illegal move! It's Black's turn.");
-            }
+            alert(activePlayer === TeamType.OUR ? "Illegal move! It's White's turn." : "Illegal move! It's Black's turn.");
             return false;
         }
 
@@ -99,17 +95,23 @@ export default function Referee() {
             playedPiece.team
         );
 
-        setBoard(() => {
-            const clonedBoard = board.clone();
+        setBoard((prevBoard) => {
+            const clonedBoard = prevBoard.clone();
             clonedBoard.totalTurns += 1; // Increment the total number of turns
             playedMoveIsValid = clonedBoard.playMove(enPassantMove, validMove, playedPiece, destination);
 
             if (playedMoveIsValid) {
                 const playerLabel = playedPiece.team === TeamType.OUR ? "White" : "Black";
                 const turnNumber = clonedBoard.totalTurns; // Correct turn number
-                const moveNotation = `Turn ${turnNumber-1}: ${playerLabel} - ${playedPiece.type} from (${playedPiece.position.x}, ${playedPiece.position.y}) to (${destination.x}, ${destination.y})`;
+                const moveNotation = `Turn ${turnNumber - 1}: ${playerLabel} - ${playedPiece.type} from (${playedPiece.position.x}, ${playedPiece.position.y}) to (${destination.x}, ${destination.y})`;
 
-                setLastMove(moveNotation); // Update the last move
+                // Update the move history only if it's a valid move
+                setMoveHistory((prevHistory) => {
+                    if (!prevHistory.includes(moveNotation)) { // Check if the move is already in history
+                        return [...prevHistory, moveNotation]; // Append the new move if not present
+                    }
+                    return prevHistory; // Return the existing history if the move is a duplicate
+                });
             }
 
             // Check if there's a checkmate
@@ -143,7 +145,7 @@ export default function Referee() {
     }
 
     function resetTimer() {
-        setTimer(10);
+        setTimer(90);
     }
 
     function isEnPassantMove(initialPosition, desiredPosition, typeType, team) {
@@ -209,6 +211,7 @@ export default function Referee() {
         setBoard(initialBoard.clone());
         setWhiteMoves([]); // Reset White move history
         setBlackMoves([]); // Reset Black move history
+        setMoveHistory([]); // Reset move history
         resetTimer();
         setActivePlayer(TeamType.OUR);
         setCurrentMoveIndex(0); // Reset current move index
@@ -216,16 +219,18 @@ export default function Referee() {
 
     return (
         <>
-            <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
-                Total turns: {board.totalTurns}
-            </p>
-            <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
-                Timer: {timer}
-            </p>
+            <div className="flex gap-7 pb-3">
+                <p className="text-white text-xl leading-none">
+                    Total turns: {board.totalTurns}
+                </p>
+                <p className="text-white text-xl leading-none">
+                    Timer: {timer}
+                </p>
 
-            <p className="text-white">
-                Active Player: {activePlayer === TeamType.OUR ? "White" : "Black"}
-            </p>
+                <p className="text-white text-xl leading-none">
+                    Active Player: {activePlayer === TeamType.OUR ? "White" : "Black"}
+                </p>
+            </div>
             <div className="modal none" ref={modalRef}>
                 <div className="modal-body">
                     <img
@@ -253,13 +258,16 @@ export default function Referee() {
                 </div>
             </div>
             <Boardchess playMove={playMove} pieces={board.pieces} />
-            <div className="fixed end-0 w-[400px] top-0">
-                <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
+            <div className="fixed end-2 w-[400px] top-5 ">
+                <p className="text-white text-2xl text-center">
                     Move History:
                 </p>
-                <p style={{ color: "white", fontSize: "20px" }}>
-                    {lastMove}
-                </p>
+                <div className="text-white text-xl max-h-[90vh] overflow-auto hidden-scoll">
+                    {moveHistory.slice().reverse().map((move, index) => (
+                        <div key={index}>{move}</div>
+                    ))}
+                </div>
+
             </div>
         </>
     );
